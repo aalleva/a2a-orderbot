@@ -1,0 +1,4 @@
+# Global HTTP Request Configuration - LLM Router
+llm:
+  host: "mulelab.xyz"
+  port: "443"

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+	<!-- Configuration Properties -->
+	<configuration-properties doc:name="Configuration properties" doc:id="0f98d422-308a-4bae-91bd-5cb794fd6586" file="config/a2a-orderbot.yaml" />
+	<configuration-properties doc:name="Configuration properties" doc:id="f3fceca1-53ad-4f16-b6e9-5e2cc8163c1b" file="config/a2a-orderbot.${mule.env}.yaml" />
+	
+	<!-- HTTP Listener Configuration -->
+	<http:listener-config name="http-listener-config" doc:name="HTTP Listener config">
+		<http:listener-connection host="${http.host}" port="${http.port}" />
+	</http:listener-config>
+	
+	<!-- HTTP Request Configuration for LLM -->
+	<http:request-config name="HTTP_Request_config" doc:name="HTTP Request config">
+		<http:request-connection host="${llm.host}" port="${llm.port}" protocol="HTTPS" />
+	</http:request-config>
+	
+</mule>
+

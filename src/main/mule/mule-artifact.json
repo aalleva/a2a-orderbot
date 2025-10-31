@@ -1,0 +1,6 @@
+{
+  "minMuleVersion": "4.8.0",
+  "name": "a2a-helloworld",
+  "description": "A2A HelloWorld Server - Returns a simple 'Hi!' greeting"
+}
+

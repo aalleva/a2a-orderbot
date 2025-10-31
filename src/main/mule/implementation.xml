@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:a2a="http://www.mulesoft.org/schema/mule/a2a"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/a2a http://www.mulesoft.org/schema/mule/a2a/current/mule-a2a.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+	<!-- Import Global Configuration -->
+	<import file="global.xml" doc:name="Import Global Configuration" />
+
+	<!-- Object Store Configuration for Conversation History -->
+	<os:object-store name="ConversationHistoryStore" doc:name="Object store" persistent="true" />
+	
+	<!-- A2A Server Configuration -->
+	<a2a:server-config name="A2A_Server" doc:name="A2A Server">
+		<a2a:connection listenerConfig="http-listener-config" agentPath="/a2a-orderbot" />
+		<a2a:card name="a2a-orderbot" url="https://mulelab.xyz/a2a-orderbot/" version="1.0.0" protocolVersion="0.3">
+			<a2a:description><![CDATA[OrderBot - An automated conversational agent for collecting pizza restaurant orders. Handles order collection, customization, delivery/pickup options, and payment processing.]]></a2a:description>
+			<a2a:skills>
+				<a2a:agent-skill id="1" name="order-collection">
+					<a2a:description><![CDATA[Collects and processes customer pizza orders including menu items, sizes, toppings, extras, drinks, delivery/pickup preferences, and payment information]]></a2a:description>
+				</a2a:agent-skill>
+				<a2a:agent-skill id="2" name="menu-assistance">
+					<a2a:description><![CDATA[Provides information about available menu items, prices, sizes, toppings, and customization options]]></a2a:description>
+				</a2a:agent-skill>
+				<a2a:agent-skill id="3" name="order-clarification">
+					<a2a:description><![CDATA[Clarifies order details, confirms selections, and ensures all required information is collected before finalizing]]></a2a:description>
+				</a2a:agent-skill>
+			</a2a:skills>
+			<a2a:capabilities streaming="true" pushNotifications="false" />
+			<a2a:default-input-modes >
+				<a2a:default-input-mode value='#["text"]' />
+			</a2a:default-input-modes>
+			<a2a:default-output-modes >
+				<a2a:default-output-mode value='#["text"]' />
+			</a2a:default-output-modes>
+		</a2a:card>
+	</a2a:server-config>
+	
+	<!-- A2A OrderBot Flow -->
+	<flow name="a2a-orderbot-flow">
+		<a2a:task-listener doc:name="OrderBot Task Listener" config-ref="A2A_Server" />
+		<ee:transform doc:name="Extract Session &amp; Message" doc:id="extract-session">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="sessionId"><![CDATA[%dw 2.0
+output text/plain
+---
+payload.configuration.sessionId default uuid()]]></ee:set-variable>
+				<ee:set-variable variableName="userMessage"><![CDATA[%dw 2.0
+output text/plain
+---
+payload.message.parts[0].text default ""]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Set OrderBot Context" doc:id="6693bd20-7069-4717-b645-08e6bce61573" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="context" ><![CDATA[%dw 2.0
+output text/plain
+---
+"You are OrderBot, an automated service to collect orders for a pizza restaurant.
+You first greet the customer, then collects the order,
+and then asks if it's a pickup or delivery.
+You wait to collect the entire order, then summarize it and check for a final
+time if the customer wants to add anything else.
+If it's a delivery, you ask for an address.
+Finally you collect the payment.
+Make sure to clarify all options, extras and sizes to uniquely
+identify the item from the menu.
+You respond in a short, very conversational friendly style.
+The menu includes 
+pepperoni pizza  12.95, 10.00, 7.00 
+cheese pizza   10.95, 9.25, 6.50 
+eggplant pizza   11.95, 9.75, 6.75 
+fries 4.50, 3.50 
+greek salad 7.25 
+Toppings: 
+extra cheese 2.00, 
+mushrooms 1.50 
+sausage 3.00 
+canadian bacon 3.50 
+AI sauce 1.50 
+peppers 1.00 
+Drinks: 
+coke 3.00, 2.00, 1.00 
+sprite 3.00, 2.00, 1.00 
+bottled water 5.00"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:retrieve doc:name="Retrieve History" key="#[vars.sessionId]" objectStore="ConversationHistoryStore" target="conversationHistory">
+			<os:default-value><![CDATA[#[[]]]]></os:default-value>
+		</os:retrieve>
+		<ee:transform doc:name="Build Message History" doc:id="build-history">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="messageHistory"><![CDATA[%dw 2.0
+output application/json
+---
+if (isEmpty(vars.conversationHistory))
+	[
+		{
+			"role": "system",
+			"content": vars.context
+		},
+		{
+			"role": "user",
+			"content": vars.userMessage
+		}
+	]
+else
+	vars.conversationHistory ++ [
+		{
+			"role": "user",
+			"content": vars.userMessage
+		}
+	]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Prepare LLM Request" doc:id="llm-request-prep">
+			<ee:message>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="llmRequest" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"model": "gpt-4.1-nano",
+	"messages": vars.messageHistory,
+	"temperature": 0
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<http:request method="POST" doc:name="Call LLM" config-ref="HTTP_Request_config" path="/dev-llm-router-v1/api/v1/chat/completions" target="llmResponse">
+			<http:body ><![CDATA[#[vars.llmRequest]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"client-id" : Mule::p('llm.router.client-id'),
+	"client-secret" : Mule::p('llm.router.client-secret'),
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Extract LLM Response" doc:id="c0047507-9b94-41ee-a45b-644cb1444798" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="responseMessage" ><![CDATA[%dw 2.0
+output text/plain
+---
+vars.llmResponse.choices[0].message.content]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Update History" doc:id="update-history">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="updatedHistory"><![CDATA[%dw 2.0
+output application/json
+---
+vars.messageHistory ++ [
+	{
+		"role": "assistant",
+		"content": vars.responseMessage
+	}
+]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:store doc:name="Store Conversation History" key="#[vars.sessionId]" objectStore="ConversationHistoryStore">
+			<os:value><![CDATA[#[vars.updatedHistory]]]></os:value>
+		</os:store>
+		<ee:transform doc:name="Build OrderBot Response" doc:id="a2287936-2884-4d2b-a1a2-5f527dc77ed1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"kind": "message",
+	"messageId": uuid(),
+	"parts": [
+		{
+			"kind": "text",
+			"text": vars.responseMessage
+		}
+	],
+	"role": "agent"
+}]]></ee:set-payload>
+				<ee:set-attributes><![CDATA[%dw 2.0
+output application/java
+---
+{
+	headers: {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+		'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+	}
+}]]></ee:set-attributes>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
+

@@ -1,0 +1,13 @@
+{
+  "minMuleVersion": "4.9.10",
+  "javaSpecificationVersions": [
+    "17"
+  ],
+  "secureProperties": [],
+  "configs": [
+    "implementation.xml"
+  ],
+  "redeploymentEnabled": true,
+  "name": "a2a-orderbot",
+  "requiredProduct": "MULE_EE"
+}
